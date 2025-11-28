@@ -5,7 +5,7 @@ interface Message {
   id: number;
   text: string;
   sender: 'bot' | 'user';
-  isResult?: boolean; // 결과 메시지 여부 (색상 포인트용)
+  status?: 'normal' | 'success' | 'fail' | 'error'; // ★ 색 결정용
 }
 
 interface Quest {
@@ -22,14 +22,19 @@ interface ChatInterfaceProps {
 
 const ChatInterface = ({ mode, setMode, onQuestComplete }: ChatInterfaceProps) => {
   const [messages, setMessages] = useState<Message[]>([
-    { id: 1, text: "안녕하세요! VeriBot입니다. 👋\n자유롭게 대화하거나, 오른쪽에서 퀘스트를 선택해 도전해보세요!", sender: 'bot' }
+    { 
+      id: 1, 
+      text: "안녕하세요! VeriBot입니다. 👋\n자유롭게 대화하거나, 오른쪽에서 퀘스트를 선택해 도전해보세요!", 
+      sender: 'bot',
+      status: 'normal'
+    }
   ]);
   const [currentQuest, setCurrentQuest] = useState<Quest | null>(null);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // 1. 모드 변경 감지
+  // 모드 변경 감지
   useEffect(() => {
     if (mode === 'quest') {
       fetchCurrentQuest();
@@ -38,7 +43,8 @@ const ChatInterface = ({ mode, setMode, onQuestComplete }: ChatInterfaceProps) =
       setMessages(prev => [...prev, { 
         id: Date.now(), 
         text: "💬 [스몰토크 모드] 편하게 영어로 대화해요!", 
-        sender: 'bot' 
+        sender: 'bot',
+        status: 'normal'
       }]);
     }
   }, [mode]);
@@ -48,7 +54,12 @@ const ChatInterface = ({ mode, setMode, onQuestComplete }: ChatInterfaceProps) =
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // 2. 현재 문제 가져오기 API 호출
+  // 디버깅용 (원하면 잠깐 켜서 확인)
+  // useEffect(() => {
+  //   console.log('messages 상태:', messages);
+  // }, [messages]);
+
+  // 현재 퀘스트 가져오기
   const fetchCurrentQuest = async () => {
     try {
       const res = await api.get('/quests/current');
@@ -59,7 +70,8 @@ const ChatInterface = ({ mode, setMode, onQuestComplete }: ChatInterfaceProps) =
         setMessages(prev => [...prev, { 
           id: Date.now(), 
           text: `📝 [${quest.title}]\n\n${quest.content}`, 
-          sender: 'bot' 
+          sender: 'bot',
+          status: 'normal'
         }]);
       } else {
         setCurrentQuest(null);
@@ -69,63 +81,75 @@ const ChatInterface = ({ mode, setMode, onQuestComplete }: ChatInterfaceProps) =
     }
   };
 
-  // 3. 메시지 전송 핸들러
+  // 메시지 전송
   const handleSend = async () => {
     if (!input.trim() || loading) return;
 
     const userMsg = input;
     setInput("");
-    setMessages(prev => [...prev, { id: Date.now() + Math.random(), text: userMsg, sender: 'user' }]);
+    setMessages(prev => [...prev, { 
+      id: Date.now() + Math.random(), 
+      text: userMsg, 
+      sender: 'user',
+      status: 'normal'
+    }]);
     setLoading(true);
 
     try {
       if (mode === 'talk') {
-        // --- 스몰토크 로직 ---
+        // --- 스몰토크 ---
         const res = await api.post('/chat/talk', { message: userMsg });
-        setMessages(prev => [...prev, { id: Date.now() + 1, text: res.data.reply, sender: 'bot' }]);
+        setMessages(prev => [...prev, { 
+          id: Date.now() + 1, 
+          text: res.data.reply, 
+          sender: 'bot',
+          status: 'normal'
+        }]);
       
       } else if (mode === 'quest' && currentQuest) {
-        // --- 퀘스트 제출 로직 ---
+        // --- 퀘스트 제출 ---
         const res = await api.post(`/quests/${currentQuest.id}/submit`, { user_answer: userMsg });
         const { result, feedback } = res.data;
+        const isPass = result === "PASS";
 
-        // AI 피드백 메시지 추가
+        // AI 피드백 메시지
         setMessages(prev => [...prev, { 
           id: Date.now() + Math.random(), 
           text: `[${result}] ${feedback}`, 
           sender: 'bot',
-          isResult: true // 색상 적용
+          status: isPass ? 'success' : 'fail'
         }]);
 
-        // ✅ 결과 처리 분기
-        if (result === "PASS") {
-          const isCompleted = feedback.includes("🏆") || feedback.includes("축하합니다") || feedback.includes("SBT");
+        if (isPass) {
+          const isCompleted =
+            feedback.includes("🏆") ||
+            feedback.includes("축하합니다") ||
+            feedback.includes("SBT");
 
           if (isCompleted) {
-             console.log("✅ 퀘스트 완료 감지! 대시보드 업데이트 요청");
-             onQuestComplete();
-             
-             // 완료 메시지 (이 메시지도 초록색으로 만들기 위해 isResult: true 추가)
-             setTimeout(() => {
-                setMessages(prev => [...prev, { 
-                    id: Date.now() + Math.random(), 
-                    text: "🎉 모든 퀘스트 완료! 보상이 지급되었습니다.\n3초 뒤 스몰토크 모드로 돌아갑니다.", 
-                    sender: 'bot',
-                    isResult: true // ✅ 여기 추가! (초록색 테두리용)
-                }]);
-             }, 1000);
+            console.log("✅ 퀘스트 완료 감지! 대시보드 업데이트 요청");
+            onQuestComplete();
 
+            setTimeout(() => {
+              setMessages(prev => [...prev, { 
+                id: Date.now() + Math.random(), 
+                text: "🎉 모든 퀘스트 완료! 보상이 지급되었습니다.\n3초 뒤 스몰토크 모드로 돌아갑니다.", 
+                sender: 'bot',
+                status: 'success'
+              }]);
+            }, 1000);
           } else {
-             setTimeout(() => fetchCurrentQuest(), 1500);
+            // 다음 문제 로드
+            setTimeout(() => fetchCurrentQuest(), 1500);
           }
         } else {
-          // ❌ FAIL: 실패 알림 (이것도 빨간색으로 표시)
+          // FAIL
           setTimeout(() => {
             setMessages(prev => [...prev, { 
-                id: Date.now() + Math.random(), 
-                text: "🚫 오답입니다! 해당 레벨의 도전이 종료됩니다.", 
-                sender: 'bot',
-                isResult: true // ✅ 여기 추가! (빨간색 테두리용)
+              id: Date.now() + Math.random(), 
+              text: "🚫 오답입니다! 해당 레벨의 도전이 종료됩니다.", 
+              sender: 'bot',
+              status: 'fail'
             }]);
             setMode('talk');
           }, 1000);
@@ -134,38 +158,36 @@ const ChatInterface = ({ mode, setMode, onQuestComplete }: ChatInterfaceProps) =
     } catch (error) {
       console.error(error);
       setMessages(prev => [...prev, { 
-          id: Date.now() + 1, 
-          text: "⚠️ 오류가 발생했습니다. 잠시 후 다시 시도해주세요.", 
-          sender: 'bot',
-          isResult: true // 에러 메시지도 빨간색으로
+        id: Date.now() + 1, 
+        text: "⚠️ 오류가 발생했습니다. 잠시 후 다시 시도해주세요.", 
+        sender: 'bot',
+        status: 'error'
       }]);
     } finally {
       setLoading(false);
     }
   };
 
-  // ✅ 스타일 결정 함수 (조건 단순화)
+  // 말풍선 스타일
   const getMessageStyle = (msg: Message) => {
-    if (msg.sender === 'user') {
-      return 'bg-brand-primary text-white rounded-tr-none';
-    }
-    
-    // 봇 메시지 기본 스타일
-    let style = 'bg-dark-ui text-text-primary border border-gray-700 rounded-tl-none';
+  // 사용자 메시지 (그대로 유지)
+  if (msg.sender === 'user') {
+    return 'bg-brand-primary text-white rounded-tr-none';
+  }
 
-    // 결과 메시지인 경우 (테두리 및 배경색 추가)
-    if (msg.isResult) {
-      // 긍정적인 키워드가 있으면 초록색, 아니면 빨간색
-      const isPositive = msg.text.includes("PASS") || msg.text.includes("축하") || msg.text.includes("성공") || msg.text.includes("🎉");
-      
-      if (isPositive) {
-        style += ' border-brand-secondary border-2 bg-brand-secondary/10'; // 초록 테두리
-      } else {
-        style += ' border-red-500 border-2 bg-red-500/10'; // 빨강 테두리
-      }
-    }
-    
-    return style;
+  // ✅ 상태별로 "완전히" 다른 클래스 세트 사용
+  if (msg.status === 'success') {
+    // PASS
+    return 'bg-brand-secondary/10 text-text-primary border-2 border-brand-secondary rounded-tl-none';
+  }
+
+  if (msg.status === 'fail' || msg.status === 'error') {
+    // FAIL / ERROR
+    return 'bg-red-500/10 text-text-primary border-2 border-red-500 rounded-tl-none';
+  }
+
+  // 기본 봇 메시지
+  return 'bg-dark-ui text-text-primary border border-gray-700 rounded-tl-none';
   };
 
   return (
@@ -183,11 +205,10 @@ const ChatInterface = ({ mode, setMode, onQuestComplete }: ChatInterfaceProps) =
         </span>
       </div>
 
-      {/* 채팅 리스트 영역 */}
+      {/* 채팅 리스트 */}
       <div className="flex-1 overflow-y-auto space-y-4 p-2 scrollbar-hide">
         {messages.map((msg) => (
           <div key={msg.id} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-            {/* 🚀 [수정] break-all 추가로 긴 텍스트(TX Hash) 줄바꿈 처리 */}
             <div className={`max-w-[85%] p-4 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap break-all shadow-md animate-fade-in ${getMessageStyle(msg)}`}>
               {msg.text}
             </div>
@@ -198,7 +219,7 @@ const ChatInterface = ({ mode, setMode, onQuestComplete }: ChatInterfaceProps) =
       </div>
       
       {/* 입력 영역 */}
-       <div className="mt-4 pt-4 border-t border-gray-800">
+      <div className="mt-4 pt-4 border-t border-gray-800">
         <div className="flex gap-2">
           <input 
             type="text" 
