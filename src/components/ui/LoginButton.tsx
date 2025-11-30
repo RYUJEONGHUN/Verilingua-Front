@@ -1,7 +1,7 @@
 const LoginButton = () => {
   const handleLogin = () => {
     // 백엔드의 구글 로그인 엔드포인트로 이동 (리다이렉트)
-    window.location.href = "http://localhost:8080/oauth2/authorization/google";
+    window.location.href = "http://verilingua.kro.kr:8080/oauth2/authorization/google";
   };
 
   return (

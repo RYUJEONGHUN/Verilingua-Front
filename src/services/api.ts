@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: 'http://localhost:8080/api', // 백엔드 주소 (API 프리픽스 확인 필요)
+  baseURL: 'http://verilingua.kro.kr:8080/api', // 백엔드 주소 (API 프리픽스 확인 필요)
 });
 
 // 요청 보낼 때마다 토큰 낚아채서 헤더에 넣기 (인터셉터)
@@ -26,7 +26,7 @@ api.interceptors.response.use(
       try {
         // 재발급 요청 (이메일 등 필요 정보 전달 방식은 백엔드 구현에 따름)
         // 보통은 쿠키에 리프레시 토큰이 있거나, 로컬 스토리지 값을 보냄
-        const res = await axios.post('http://localhost:8080/api/auth/refresh', { 
+        const res = await axios.post('http://verilingua.kro.kr:8080/api/auth/refresh', { 
             email: "user@example.com" // 실제로는 토큰에서 파싱하거나 저장된 값 사용
         });
         
