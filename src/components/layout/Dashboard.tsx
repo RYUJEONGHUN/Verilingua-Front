@@ -17,7 +17,7 @@ interface DashboardProps {
 
 const Dashboard = ({ onStartQuest, refreshKey }: DashboardProps) => {
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [, setLoading] = useState(false);
 
   // 1. 내 정보 가져오기 (refreshKey 의존성 추가)
   const fetchUserInfo = async () => {
